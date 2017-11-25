@@ -71,33 +71,123 @@ public class MySearchEngine {
         String[] index = readIndex();
         //System.out.println(Arrays.toString(index));
 
-        Double[] weights = new Double[15];
-        Arrays.fill(weights, 0.0);
 
-        for(String s: input){
+
+        // number of documents is hardcoded
+
+        /*
+         * for each term in query find documents that match query and them perform cosine similarity
+         */
+
+        // Query Term Frequency
+        Map<String, Integer> queryMap =  termFrequency(input);
+        List<String> wordsQuery = new ArrayList<String>();
+        List<Double> queryTF = new ArrayList<Double>();
+
+
+        for (String s : queryMap.keySet()) {
+            wordsQuery.add(s);
+            queryTF.add((double)queryMap.get(s));
+        }
+
+
+
+        Double[][] weightsDF = new Double[15][wordsQuery.size()];
+        for(int i=0; i<15; i++){
+            for(int j= 0; j < wordsQuery.size(); j++){
+                weightsDF[i][j] = 0.0;
+            }
+        }
+
+
+        //
+        // Arrays.fill(weightsDF, 0.0);
+
+        // for each word in query
+        for (String w: wordsQuery){
             for (int i = 0; i < index.length; i++){
-                String row = index[i];
 
+                //get row
+                String row = index[i];
+                // split row
                 String[] rowTokens = row.split(",");
                 String term = rowTokens[0];
 
-                if (term.equals(s)) {
-                    System.out.println("terms are a match");
+                if (term.equals(w)) {
+
                     double idf = Double.parseDouble(rowTokens[rowTokens.length - 1]);
 
                     for (int j = 1; j < rowTokens.length - 2; j = j + 2) {
                         // System.out.println(rowTokens[j] + " : " + rowTokens[j + 1]);
                         int docId =  Integer.parseInt(rowTokens[j].substring(1));
                         double tf = Integer.parseInt(rowTokens[j+1]);
-                        weights[docId-1] =+ (tf*idf);
+                        weightsDF[docId-1][wordsQuery.indexOf(w)] = (tf*idf);
                     }
-
-
                 }
+
             }
         }
+
+        Double[] dotProduct = new Double[15];
+        Arrays.fill(dotProduct, 0.0);
+        Double[] euclidLength = new Double[15];
+        Arrays.fill(euclidLength, 0.0);
+        Double[] finalWeights = new Double[15];
+
+
+        for(int i = 0; i < 15; i++) {
+            for (int j = 0; j < wordsQuery.size(); j++) {
+
+
+                dotProduct[i] +=  weightsDF[i][j] * queryTF.get(j);
+                euclidLength[i] += Math.pow(weightsDF[i][j],2);
+            }
+
+            euclidLength[i] = Math.sqrt(euclidLength[i]);
+
+            finalWeights[i] = dotProduct[i]/euclidLength[i];
+            //System.out.println(finalWeights[i]);
+        }
+
+
+
+
+
+
+
+        // For each string in Query
+//        for(String s: input){
+//            // for each item in index
+//            for (int i = 0; i < index.length; i++){
+//
+//                //get row
+//                String row = index[i];
+//                // split row
+//                String[] rowTokens = row.split(",");
+//                String term = rowTokens[0];
+//
+//                if (term.equals(s)) {
+//                    System.out.println("terms are a match");
+//                    double idf = Double.parseDouble(rowTokens[rowTokens.length - 1]);
+//
+//                    for (int j = 1; j < rowTokens.length - 2; j = j + 2) {
+//                        // System.out.println(rowTokens[j] + " : " + rowTokens[j + 1]);
+//                        int docId =  Integer.parseInt(rowTokens[j].substring(1));
+//                        double tf = Integer.parseInt(rowTokens[j+1]);
+//                        weights[docId-1] =+ (tf*idf);
+//
+//
+//
+//                    }
+//                } else {
+//                    // terms are not matchign set to 0
+//                }
+//            }
+//        }
+
+
         DecimalFormat f = new DecimalFormat("##.000");
-        Double[] sortedWeights = weights.clone();
+        Double[] sortedWeights = finalWeights.clone();
         Arrays.sort(sortedWeights,Collections.reverseOrder());
         Set<Double> weightSetSorted= new LinkedHashSet<>();
 
@@ -110,7 +200,7 @@ public class MySearchEngine {
         int docNumberPrint = 1;
         while (iterator.hasNext()){
             Double iterVal = Double.parseDouble(iterator.next().toString());
-            String docName = "d" + (Arrays.asList(weights).indexOf(iterVal) + 1);
+            String docName = "d" + (Arrays.asList(finalWeights).indexOf(iterVal) + 1);
             if (iterVal>0 & docNumberPrint < 11) {
                  System.out.println(docNumberPrint + ". " + docName + ": relevance score " + f.format(iterVal));
             }
@@ -523,8 +613,8 @@ public class MySearchEngine {
 
 
         // term list
-        DecimalFormat f = new DecimalFormat("##.000");
-        String outputFile = "";
+        DecimalFormat f = new DecimalFormat("##.000"); // decimal format
+        String outputFile = ""; // empty file for writing
 
 
         for(String term: linkedTermSet){
